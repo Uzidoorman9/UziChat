@@ -1,0 +1,19 @@
+/* Basic styling for the chat application */
+body { margin:0; font-family:Arial,sans-serif; display:flex; height:100vh; background:#2c2f33; color:#fff; }
+#sidebar { width:220px; background:#202225; padding:10px; display:flex; flex-direction:column; }
+#sidebar h2 { font-size:16px; margin-bottom:10px; color:#ccc; }
+#channels .channel { padding:8px; cursor:pointer; border-radius:5px; }
+.channel:hover, .channel.active { background:#2f3136; }
+#main { flex:1; display:flex; flex-direction:column; }
+#header { background:#2f3136; padding:10px; font-weight:bold; }
+#chat { flex:1; overflow-y:auto; padding:10px; }
+.msg { margin:8px 0; }
+.username { font-weight:bold; margin-right:5px; }
+.text { background:#36393f; display:inline-block; padding:6px 10px; border-radius:5px; }
+#inputBar { display:flex; flex-direction:column; background:#2f3136; padding:8px; }
+#typing { font-size:12px; color:#aaa; height:16px; margin-bottom:4px; }
+#inputRow { display:flex; }
+#msgInput { flex:1; padding:10px; border:none; border-radius:5px; outline:none; }
+#sendBtn { margin-left:8px; padding:10px 15px; background:#5865F2; color:#fff; border:none; border-radius:5px; cursor:pointer; }
+#sendBtn:hover { background:#4752C4; }
+#users { padding:10px; font-size:13px; background:#2f3136; border-top:1px solid #202225; }
