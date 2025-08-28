@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Render Chat</title>
+  <style>
+    body { margin:0; font-family:Arial,sans-serif; display:flex; height:100vh; background:#2c2f33; color:#fff; }
+    #sidebar { width:220px; background:#202225; padding:10px; display:flex; flex-direction:column; }
+    #sidebar h2 { font-size:16px; margin-bottom:10px; color:#ccc; }
+    #channels .channel { padding:8px; cursor:pointer; border-radius:5px; }
+    .channel:hover, .channel.active { background:#2f3136; }
+    #main { flex:1; display:flex; flex-direction:column; }
+    #header { background:#2f3136; padding:10px; font-weight:bold; }
+    #chat { flex:1; overflow-y:auto; padding:10px; }
+    .msg { margin:8px 0; }
+    .username { font-weight:bold; margin-right:5px; }
+    .text { background:#36393f; display:inline-block; padding:6px 10px; border-radius:5px; }
+    #inputBar { display:flex; flex-direction:column; background:#2f3136; padding:8px; }
+    #typing { font-size:12px; color:#aaa; height:16px; margin-bottom:4px; }
+    #inputRow { display:flex; }
+    #msgInput { flex:1; padding:10px; border:none; border-radius:5px; outline:none; }
+    #sendBtn { margin-left:8px; padding:10px 15px; background:#5865F2; color:#fff; border:none; border-radius:5px; cursor:pointer; }
+    #sendBtn:hover { background:#4752C4; }
+    #users { padding:10px; font-size:13px; background:#2f3136; border-top:1px solid #202225; }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <h2>Channels</h2>
+    <div id="channels">
+      <div class="channel active" data-channel="general"># general</div>
+      <div class="channel" data-channel="random"># random</div>
+    </div>
+    <div id="users"><b>Online:</b> <span id="userList"></span></div>
+  </div>
+
+  <div id="main">
+    <div id="header"># general</div>
+    <div id="chat"></div>
+    <div id="inputBar">
+      <div id="typing"></div>
+      <div id="inputRow">
+        <input id="msgInput" placeholder="Message..." />
+        <button id="sendBtn">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Replace with your Render WebSocket URL
+    const ws = new WebSocket("wss://your-render-service.onrender.com");
+
+    const chat = document.getElementById("chat");
+    const input = document.getElementById("msgInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const typingDiv = document.getElementById("typing");
+    const userList = document.getElementById("userList");
+    const header = document.getElementById("header");
+    const channelElems = document.querySelectorAll(".channel");
+
+    let username = prompt("Enter your name") || "Guest" + Math.floor(Math.random()*1000);
+    const colors = ["#57F287","#FEE75C","#EB459E","#ED4245","#5865F2","#00B0F4"];
+    let userColor = colors[Math.floor(Math.random()*colors.length)];
+
+    let currentChannel = "general";
+    const history = { general: [], random: [] };
+    const activeUsers = {};
+    const typingUsers = {};
+
+    function renderChat(channel) {
+      chat.innerHTML = "";
+      history[channel].forEach(msg => addMsg(msg.user,msg.text,msg.color,msg.channel,false));
+    }
+
+    function addMsg(user,text,color,chan,save=true) {
+      if (chan!==currentChannel) { if(save) history[chan].push({user,text,color,channel:chan}); return; }
+      const div = document.createElement("div");
+      div.className="msg";
+      div.innerHTML = '<span class="username" style="color:'+color+'">'+user+'</span><span class="text">'+text+'</span>';
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+      if(save) history[chan].push({user,text,color,channel:chan});
+    }
+
+    function sendMessage() {
+      const text = input.value.trim();
+      if(!text) return;
+      const msg = {type:"chat",user:username,text,color:userColor,channel:currentChannel};
+      ws.send(JSON.stringify(msg));
+      addMsg(msg.user,msg.text,msg.color,msg.channel);
+      input.value="";
+      ws.send(JSON.stringify({type:"typingStop",user:username}));
+    }
+
+    sendBtn.onclick=sendMessage;
+    input.addEventListener("keypress",e=>{ if(e.key==="Enter") sendMessage(); });
+    input.addEventListener("input",()=>{
+      if(input.value.trim()!=="") ws.send(JSON.stringify({type:"typing",user:username}));
+      else ws.send(JSON.stringify({type:"typingStop",user:username}));
+    });
+
+    setInterval(()=>{ ws.send(JSON.stringify({type:"presence",user:username,color:userColor,time:Date.now()})); },3000);
+    setInterval(()=>{
+      const cutoff=Date.now()-20000;
+      Object.keys(activeUsers).forEach(u=>{ if(activeUsers[u].last<cutoff) delete activeUsers[u]; });
+      updateUsers();
+    },5000);
+
+    function updateUsers(){
+      userList.textContent=Object.keys(activeUsers).join(", ");
+    }
+    function updateTyping(){
+      const names=Object.keys(typingUsers).filter(u=>u!==username);
+      typingDiv.textContent = names.length===0?"":names.length===1?names[0]+" is typing...":names.join(", ")+" are typing...";
+    }
+
+    ws.onmessage = e=>{
+      const msg = JSON.parse(e.data);
+      if(msg.type==="chat") addMsg(msg.user,msg.text,msg.color,msg.channel);
+      else if(msg.type==="presence"){ activeUsers[msg.user]={color:msg.color,last:msg.time}; updateUsers(); }
+      else if(msg.type==="typing"){ typingUsers[msg.user]=Date.now(); updateTyping(); }
+      else if(msg.type==="typingStop"){ delete typingUsers[msg.user]; updateTyping(); }
+    };
+
+    channelElems.forEach(el=>{
+      el.onclick=()=>{
+        channelElems.forEach(c=>c.classList.remove("active"));
+        el.classList.add("active");
+        currentChannel=el.dataset.channel;
+        header.textContent="# "+currentChannel;
+        renderChat(currentChannel);
+      };
+    });
+
+    renderChat(currentChannel);
+  </script>
+</body>
+</html>
